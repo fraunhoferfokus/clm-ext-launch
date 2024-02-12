@@ -1,0 +1,210 @@
+/lti13-consumer/{id}:
+    get:
+      summary: Get your LTI13 Credentials.
+      tags:
+        - pblc
+      parameters:
+        - in: path
+          name: id
+          description: ID of your generated credentials in POST /lti13-consumer.
+          example: abcd-efgh-ijkl
+          required: true
+      responses:
+        '200':
+          description: Succesfull operation. Credentials returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LTI13ConsumerCredentials'
+    delete:
+      summary: Delete LTI13 Credentials.
+      tags:
+        - pblc
+      parameters:
+        - in: path
+          name: id
+          description: ID of your generated credentials in POST /lti13-consumer.
+          example: abcd-efgh-ijkl
+          required: true
+      responses:
+        '200':
+          description: Succesfull operation. Credentials got deleted.
+/lti13-consumer:
+    post:
+      summary: Create LTI13 Credentials.
+      tags:
+        - pblc
+      parameters:
+        - in: body
+          name: issuer
+          description: Requesting issuer
+          example: clm
+          required: true
+        - in: body
+          name: client_id
+          description: client_id
+          example: '00001'
+          required: true
+        - in: body
+          name: key_set_url
+          description: key_set_url
+          example: 'https://clm.de/jwks'
+          required: true
+        - in: body
+          name: auth_token_url
+          description: auth_token_url
+          example: 'https://clm.de/jwks'
+          required: true
+      responses:
+        '200':
+          description: Succesfull operation. Credentials returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LTI13ConsumerCredentials'
+
+/launchableObjects/{launchableObjectId}:
+    get:
+      tags:
+        - pblc
+      summary: >-
+        Launches an existing launchable object by launchableObjectId via
+        cmi5-launch-request
+      operationId: quickLaunch
+      description: >-
+        The displayed parameters do not reflect all the necessary parameters to
+        launch the tools. Please refer to the LTI11, LTI13, CMI5 specifications
+        for more information. In addition to the attributes required for the
+        specifications, an email must always be included. 
+      parameters:
+        - name: launchableObjectId
+          in: path
+          required: true
+          description: LaunchableObjectId of launchable object
+          example: launchableObjectId
+        - name: endpoint
+          in: query
+          required: true
+          description: LRS endpoint
+          example: endpoint
+        - name: fetch
+          in: query
+          required: true
+          description: Fetch API endpoint
+          example: fetch
+        - name: registration
+          in: query
+          required: true
+          description: Registration
+          example: registration
+        - name: activityId
+          in: query
+          required: true
+          description: ActivityId of launchable object
+          example: activityId
+        - name: actor
+          in: query
+          required: true
+          description: Experience-API Actor object
+          example: actor
+        - name: iss
+          in: query
+          required: true
+          description: '[LTI11]'
+          example: clm
+        - name: login_hint
+          in: query
+          required: true
+          description: '[LTI11]:'
+          example: '12345'
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: '{error:''type is missing | launch couldn''t be build''}'
+        '401':
+          description: '{error:''Unauthorized''}'
+    post:
+      tags:
+        - pblc
+      summary: >-
+        Launches an existing launchable object by launchableObjectId depending
+        on given params.
+      description: >-
+        The displayed parameters do not reflect all the necessary parameters to
+        launch the tools. Please refer to the LTI11, LTI13, CMI5 specifications
+        for more information. In addition to the attributes required for the
+        specifications, an email must always be included. 
+      parameters:
+        - name: launchableObjectId
+          in: path
+          required: true
+          description: LaunchableObjectId of launchable object
+          example: launchableObjectId
+        - name: oauth_consumer_key
+          in: body
+          required: true
+          description: '[LTI11]'
+          example: clm
+        - name: oauth_signature
+          in: body
+          required: true
+          description: '[LTI11]'
+          example: RKznSYQZaJkMnQBjQ8HH+A6BKrU=
+        - name: lis_person_contact_email_primary
+          in: body
+          required: true
+          description: '[LTI11]:'
+          example: fame@fokus.de
+        - name: iss
+          in: query
+          required: true
+          description: '[LTI11]'
+          example: clm
+        - name: login_hint
+          in: query
+          required: true
+          description: '[LTI11]:'
+          example: '12345'
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: '{error:''type is missing | launch couldn''t be build''}'
+        '401':
+          description: '{error:''Unauthorized''}'
+/launchableObjects/{launchableObjectId}/metadata:
+    get:
+      tags:
+        - pblc
+      summary: >-
+        Readds an existing object metadta of an existing launchable object by
+        launchableObjectId
+      operationId: quickLaunch
+      parameters:
+        - name: providerId
+          in: query
+          required: true
+          description: ActivityId of launchable object
+          example: providerId
+        - name: type
+          in: query
+          required: true
+          description: |-
+            Object metadata type 
+             Available Values: LOM, LRMI 
+             Default value: LOM
+          schema:
+            type: string
+            enum:
+              - LOM
+              - LRMI
+            example: LOM
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: '{error:''type is missing | launch couldn''t be build''}'
+        '401':
+          description: '{error:''Unauthorized''}'
+  

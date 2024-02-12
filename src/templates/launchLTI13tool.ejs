@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Redirecting...</title>
+</head>
+
+<body onload="document.forms[0].submit()">
+  <p>Redirecting from platform to tool...</p>
+  <form action="<%= redirect_uri %>" method="post">
+    <input type="hidden" name="id_token" value="<%= token %>">
+  </form>
+</body>
+
+</html>

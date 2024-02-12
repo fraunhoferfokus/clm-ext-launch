@@ -1,0 +1,171 @@
+---
+openapi: 3.0.0
+info:
+  title: CLM-EXT-LAUNCH
+  version: 1.0.0
+  description: API endpoints the clm-ext-launch module offers
+servers:
+- url: "{scheme}://{hostname}:{port}{path}"
+  description: The production API server
+  variables:
+    hostname:
+      default: localhost
+    port:
+      default: '5001'
+    path:
+      default: ''
+    scheme:
+      default: http
+security:
+- bearerAuth: []
+paths:
+  "/launch/{toolId}":
+    get:
+      tags:
+      - pblc
+      summary: Launches an existing tool by toolId (CMI5)
+      operationId: quickLaunch
+      description: The displayed parameters do not reflect all the necessary parameters
+        to launch the tools. Please refer to the CMI5 specification for more information.
+        In addition to the attributes required for the specifications, an email must
+        always be included.
+      parameters:
+      - name: toolId
+        in: path
+        required: true
+        description: toolId of launchable object
+        example: toolId
+        schema:
+          type: string
+      - name: accessToken
+        in: query
+        required: true
+        description: Access Token of user
+        example: example-access-token
+        schema:
+          type: string
+      - name: endpoint
+        in: query
+        description: LRS endpoint (CMI5)
+        example: endpoint
+        schema:
+          type: string
+      - name: fetch
+        in: query
+        description: Fetch API endpoint (CMI5)
+        example: fetch
+        schema:
+          type: string
+      - name: registration
+        in: query
+        description: Registration (CMI5)
+        example: registration
+        schema:
+          type: string
+      - name: activityId
+        in: query
+        description: ActivityId of tool (CMI5)
+        example: activityId
+        schema:
+          type: string
+      - name: actor
+        in: query
+        description: Experience-API Actor object (CMI5)
+        example: actor
+        schema:
+          type: string
+      - name: iss
+        in: query
+        description: "(LTI13)"
+        example: clm
+        schema:
+          type: string
+      - name: login_hint
+        in: query
+        description: "(LTI13)"
+        example: 12345
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Successful operation
+    post:
+      tags:
+      - pblc
+      summary: Launches an existing tool by toolId (LTI11)
+      description: The displayed parameters do not reflect all the necessary parameters
+        to launch the tools. Please refer to the LTI11 specification for more information.
+        In addition to the attributes required for the specifications, an email must
+        always be included.
+      parameters:
+      - name: toolId
+        in: path
+        required: true
+        description: toolId of launchable object
+        example: toolId
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+              - oauth_consumer_key
+              - lis_person_contact_email_primary
+              properties:
+                oauth_consumer_key:
+                  type: string
+                  description: the access-token of the user
+                  default: example-access-token
+                lis_person_contact_email_primary:
+                  type: string
+                  description: the email of the user
+                  default: fame@fokus.fraunhofer.de
+      responses:
+        '200':
+          description: Successful operation
+components:
+  schemas:
+    relation:
+      type: object
+      properties:
+        fromType:
+          type: string
+          description: The type of the node
+          default: fromTypeNode
+        toType:
+          type: string
+          description: The type of the target node
+          default: toTypeNode
+        fromId:
+          type: string
+          description: The id of the node
+          default: fromNodeId
+        toId:
+          type: string
+          description: The id of the target node
+          default: toNodeId
+        order:
+          type: number
+          description: The order of the relation. Used for example ordering the enrollments
+            of a group/user
+          default: 0
+  parameters:
+    accessToken:
+      name: x-access-token
+      in: header
+      description: The access token
+      required: true
+      example: exampleAccessToken
+      schema:
+        type: string
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    refreshAuth:
+      type: apiKey
+      in: header
+      name: x-refresh-token
+tags: []

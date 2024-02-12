@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en" style="height: 100%; width: 100%">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Render tool in a new tab</title>
+</head>
+
+<body style="height: 100%; width: 100%">
+    <!-- <p>Tool is launched in a new tab</p> -->
+    <form hidden name="post_redirect" target="_self" action="<%= redirectUrl %>" method="post">
+        <% for(var i=0; i < launchData_ary.length; i++) { %>
+            <input name="<%= launchData_ary[i][0] %>" value="<%= launchData_ary[i][1] %>">
+            <% } %>
+                <input id="me" type="submit" title="go">
+    </form>
+
+</body>
+<script type="text/javascript">
+    window.onload = function () {
+        let launchData = JSON.parse('<%- JSON.stringify(launchData) %>')
+        let postRedirect = document.getElementsByName('post_redirect')[0];
+        postRedirect.style.display = 'none'
+        postRedirect.submit();
+    }
+</script>
+
+
+</html>
