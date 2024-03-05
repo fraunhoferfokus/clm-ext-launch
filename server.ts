@@ -27,6 +27,7 @@
  *  famecontact@fokus.fraunhofer.de
  * -----------------------------------------------------------------------------
  */
+
 import dotenv from 'dotenv'
 dotenv.config()
 const PORT = process.env.PORT
@@ -37,6 +38,8 @@ import express from 'express'
 import path from 'path'
 import EntryPointController from './src/controllers/EntryPointController'
 const app = express()
+
+
 const basePath = process.env.BASE_PATH || '/launch'
 // paths which require no API-Token
 const ECLUDED_PATHS: string[] = [
@@ -75,6 +78,7 @@ app.get('/health', (req, res) => res.send('OK'))
 // app.use(AuthGuard.requireAPIToken(ECLUDED_PATHS))
 app.use(basePath, EntryPointController.router)
 app.use(errHandler);
+
 
 Promise.all([
     pathBDTOInstance.registerRoutes(app, ECLUDED_PATHS),

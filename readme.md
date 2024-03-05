@@ -62,6 +62,12 @@ Following table gives an overview of the settings you can change through the env
 3.1 `npm run dev` for development with nodemon
 3.2 `npm start` for deployment
 
+4.  Subsequently, the JSON representation of the Open-API specification should be accessible at:
+
+`http://localhost:${PORT}/launch/swagger`
+
+**To access the API endpoints detailed in the Open-API specification, an API token is required. This token is generated during the initialization of the clm-core module. For further details, please consult the documentation at clm-core.**
+
 ## For Consumption as an NPM Package
 
 - Documentation about all exposed modules can be found under `/docs`.

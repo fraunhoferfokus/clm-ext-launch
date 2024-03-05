@@ -185,7 +185,7 @@ class LaunchController extends BaseExtensionCtrl {
             if (req.query.actor) {
                 const { accessToken, email } = LaunchService.validate_cmi5_request(query);
                 const { tool, user } = await LaunchService.getUserAndTool(accessToken, email, toolId)
-                return LaunchService.launchSpecification(tool.type, tool, user, accessToken)(req, res, next)
+                return LaunchService.launchSpecification(tool.type as any, tool, user, accessToken)(req, res, next)
             }
             // LTI11 LAUNCH REQUEST
             if (req.body.oauth_consumer_key) {
@@ -194,7 +194,7 @@ class LaunchController extends BaseExtensionCtrl {
 
                 const { accessToken, email } = LaunchService.validate_lti11_request(body);
                 const { tool, user } = await LaunchService.getUserAndTool(accessToken, email, toolId)
-                return LaunchService.launchSpecification(tool.type, tool, user, accessToken)(req, res, next)
+                return LaunchService.launchSpecification(tool.type as any, tool, user, accessToken)(req, res, next)
             }
             //  LTI13 LAUNCH REQUEST
             if (req.query.iss) {
