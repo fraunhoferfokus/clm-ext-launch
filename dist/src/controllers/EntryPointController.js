@@ -1,3 +1,4 @@
+"use strict";
 /* -----------------------------------------------------------------------------
  *  Copyright (c) 2023, Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V.
  *
@@ -11,7 +12,7 @@
  *  GNU Affero General Public License for more details.
  *
  *  You should have received a copy of the GNU Affero General Public License
- *  along with this program. If not, see <https://www.gnu.org/licenses/>.  
+ *  along with this program. If not, see <https://www.gnu.org/licenses/>.
  *
  *  No Patent Rights, Trademark Rights and/or other Intellectual Property
  *  Rights other than the rights under this license are granted.
@@ -19,7 +20,7 @@
  *
  *  For any other rights, a separate agreement needs to be closed.
  *
- *  For more information please contact:  
+ *  For more information please contact:
  *  Fraunhofer FOKUS
  *  Kaiserin-Augusta-Allee 31
  *  10589 Berlin, Germany
@@ -27,7 +28,6 @@
  *  famecontact@fokus.fraunhofer.de
  * -----------------------------------------------------------------------------
  */
-"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -50,23 +50,101 @@ const crypto_1 = require("crypto");
 const ejs_1 = __importDefault(require("ejs"));
 const fs_1 = __importDefault(require("fs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const swagger_jsdoc_1 = __importDefault(require("swagger-jsdoc"));
 const uuid_1 = require("uuid");
 const LaunchService_1 = __importDefault(require("../services/LaunchService"));
 const cmi5Controller_1 = __importDefault(require("./cmi5Controller"));
+const server_1 = require("../../server");
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     relation:
+ *       type: object
+ *       properties:
+ *         fromType:
+ *           type: string
+ *           description: The type of the node
+ *           default: fromTypeNode
+ *         toType:
+ *           type: string
+ *           description: The type of the target node
+ *           default: toTypeNode
+ *         fromId:
+ *           type: string
+ *           description: The id of the node
+ *           default: fromNodeId
+ *         toId:
+ *           type: string
+ *           description: The id of the target node
+ *           default: toNodeId
+ *         order:
+ *           type: number
+ *           description: The order of the relation. Used for example ordering the enrollments of a group/user
+ *           default: 0
+ *   parameters:
+ *     accessToken:
+ *       name: x-access-token
+ *       in: header
+ *       description: The access token
+ *       required: true
+ *       example: exampleAccessToken
+ *       schema:
+ *         type: string
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *     refreshAuth:
+ *       type: apiKey
+ *       in: header
+ *       name: x-refresh-token
+ */
+const options = {
+    definition: {
+        openapi: '3.0.0',
+        info: {
+            title: 'CLM-EXT-LAUNCH',
+            version: '1.0.0',
+            description: 'API endpoints the clm-ext-launch module offers',
+        },
+        servers: [
+            {
+                "url": "{scheme}://{hostname}:{port}{path}",
+                "description": "The production API server",
+                "variables": {
+                    "hostname": {
+                        "default": "localhost",
+                    },
+                    "port": {
+                        "default": `${process.env.PORT}`
+                    },
+                    "path": {
+                        "default": ""
+                    },
+                    "scheme": {
+                        "default": "http",
+                    }
+                }
+            }
+        ],
+        security: [{
+                bearerAuth: [],
+            }]
+    },
+    apis: [
+        './src/controllers/*.ts'
+    ]
+};
+const swaggerSpecification = (0, swagger_jsdoc_1.default)(options);
 const KID = process.env.KID || '1';
 const encryptService = new clm_core_1.EncryptService(process.env.LOGIN_HINT_ENCRYPT_KEY || 'secret');
-const rootDir = process.cwd();
-const lti11form = fs_1.default.readFileSync(rootDir + '/src/templates/lti11form.ejs').toString();
-const lti13formtest = fs_1.default.readFileSync(rootDir + '/src/templates/lti13formtest.ejs').toString();
-const lti11formSelf = fs_1.default.readFileSync(rootDir + '/src/templates/lti11formSelf.ejs').toString();
-const rootdir = process.cwd();
-const issuers = [];
-const initRequest = [];
-const basePath = process.env.BASE_PATH || '/launch';
+const lti11form = fs_1.default.readFileSync(server_1.ROOT_DIR + '/src/templates/lti11form.ejs').toString();
+const lti11formSelf = fs_1.default.readFileSync(server_1.ROOT_DIR + '/src/templates/lti11formSelf.ejs').toString();
 const publicKeyPath = '/src/jwks/public_key.pub';
 const privateKeyPath = '/src/jwks/private_key.pem';
 let public_key, private_key;
-if (!fs_1.default.existsSync(rootdir + publicKeyPath) || !fs_1.default.existsSync(rootdir + privateKeyPath)) {
+if (!fs_1.default.existsSync(server_1.ROOT_DIR + publicKeyPath) || !fs_1.default.existsSync(server_1.ROOT_DIR + privateKeyPath)) {
     (() => __awaiter(void 0, void 0, void 0, function* () {
         const { public_key: pubKey, private_key: privKey } = yield new Promise((resolve, reject) => {
             (0, crypto_1.generateKeyPair)('rsa', {
@@ -85,22 +163,19 @@ if (!fs_1.default.existsSync(rootdir + publicKeyPath) || !fs_1.default.existsSyn
                 return resolve({ public_key, private_key });
             });
         });
-        fs_1.default.writeFileSync(rootdir + publicKeyPath, pubKey);
-        fs_1.default.writeFileSync(rootdir + privateKeyPath, privKey);
+        fs_1.default.writeFileSync(server_1.ROOT_DIR + publicKeyPath, pubKey);
+        fs_1.default.writeFileSync(server_1.ROOT_DIR + privateKeyPath, privKey);
     }))();
 }
 else {
-    public_key = fs_1.default.readFileSync(rootDir + publicKeyPath, 'utf-8');
-    private_key = fs_1.default.readFileSync(rootDir + privateKeyPath, 'utf-8');
-    // // transform to jwk through node-jose
-    // JWK.asKey(public_key, 'pem').then((webkey) => {
-    //     jwk = webkey.toJSON()
-    // })
+    public_key = fs_1.default.readFileSync(server_1.ROOT_DIR + publicKeyPath, 'utf-8');
+    private_key = fs_1.default.readFileSync(server_1.ROOT_DIR + privateKeyPath, 'utf-8');
 }
 class LaunchController extends clm_core_1.BaseExtensionCtrl {
     constructor() {
         super(...arguments);
         this.specTranslator = (req, res, next) => __awaiter(this, void 0, void 0, function* () {
+            console.log('controlling spec');
             let toolId = req.params.toolId;
             const body = req.body;
             const query = req.query;
@@ -113,6 +188,7 @@ class LaunchController extends clm_core_1.BaseExtensionCtrl {
                 }
                 // LTI11 LAUNCH REQUEST
                 if (req.body.oauth_consumer_key) {
+                    console.log('here we are');
                     const { accessToken, email } = LaunchService_1.default.validate_lti11_request(body);
                     const { tool, user } = yield LaunchService_1.default.getUserAndTool(accessToken, email, toolId);
                     return LaunchService_1.default.launchSpecification(tool.type, tool, user, accessToken)(req, res, next);
@@ -143,7 +219,7 @@ class LaunchController extends clm_core_1.BaseExtensionCtrl {
             try {
                 let form = (toolTarget === '_self') ? lti11formSelf : lti11form;
                 let html = ejs_1.default.render(form, { launchData_ary, redirectUrl, launchData, returnUrl, target });
-                res.send(html);
+                return res.send(html);
             }
             catch (e) {
                 return next({ message: e, status: 500 });
@@ -249,7 +325,6 @@ class LaunchController extends clm_core_1.BaseExtensionCtrl {
                 // jwt.sign()
             }
             catch (err) {
-                console.log(err);
                 return next(err);
             }
         });
@@ -283,125 +358,109 @@ controller.router.use('/cmi5', cmi5Controller_1.default.router);
 controller.router.post('/oidc/auth', controller.oidc_auth_endpoint);
 controller.router.get('/jwks', controller.jwks);
 controller.router.use('/swagger', (req, res) => {
-    res.json(clm_core_1.SwaggerDefinition.definition);
+    return res.json(swaggerSpecification);
 });
-clm_core_1.SwaggerDefinition.addPath(basePath + '/{toolId}', {
-    "get": {
-        "tags": [
-            "pblc"
-        ],
-        "summary": "Launches an existing tool by toolId (CMI5/LTI13)",
-        "operationId": "quickLaunch",
-        "description": "The displayed parameters do not reflect all the necessary parameters to launch the tools. Please refer to the LTI11, LTI13, CMI5 specifications for more information. In addition to the attributes required for the specifications, an email must always be included.",
-        "parameters": [
-            {
-                "name": "toolId",
-                "in": "path",
-                "required": true,
-                "description": "toolId of launchable object",
-                "example": "toolId"
-            },
-            {
-                "name": "accessToken",
-                "in": "query",
-                "required": true,
-                "description": "Access Token of user",
-                "example": "example-access-token"
-            },
-            {
-                "name": "endpoint",
-                "in": "query",
-                "description": "LRS endpoint (CMI5)",
-                "example": "endpoint"
-            },
-            {
-                "name": "fetch",
-                "in": "query",
-                "description": "Fetch API endpoint (CMI5)",
-                "example": "fetch"
-            },
-            {
-                "name": "registration",
-                "in": "query",
-                "description": "Registration (CMI5)",
-                "example": "registration"
-            },
-            {
-                "name": "activityId",
-                "in": "query",
-                "description": "ActivityId of tool (CMI5)",
-                "example": "activityId"
-            },
-            {
-                "name": "actor",
-                "in": "query",
-                "description": "Experience-API Actor object (CMI5)",
-                "example": "actor"
-            },
-            {
-                "name": "iss",
-                "in": "query",
-                "description": "(LTI13)",
-                "example": "clm"
-            },
-            {
-                "name": "login_hint",
-                "in": "query",
-                "description": "(LTI13)",
-                "example": "12345"
-            }
-        ],
-        "responses": {
-            "200": {
-                "description": "Successful operation"
-            }
-        }
-    },
-    "post": {
-        "tags": [
-            "pblc"
-        ],
-        "summary": "Launches an existing tool by toolId (LTI11)",
-        "description": "The displayed parameters do not reflect all the necessary parameters to launch the tools. Please refer to the LTI11, LTI13, CMI5 specifications for more information. In addition to the attributes required for the specifications, an email must always be included.",
-        "parameters": [
-            {
-                "name": "toolId",
-                "in": "path",
-                "required": true,
-                "description": "toolId of launchable object",
-                "example": "toolId"
-            }
-        ],
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": {
-                    schema: {
-                        type: "object",
-                        properties: {
-                            oauth_consumer_key: {
-                                type: "string",
-                                description: "the access-token of the user",
-                                required: true,
-                                default: "example-access-token"
-                            },
-                            lis_person_contact_email_primary: {
-                                type: "string",
-                                description: "the email of the user",
-                                required: true,
-                                default: "fame@fokus.fraunhofer.de"
-                            }
-                        },
-                        required: ["oauth_consumer_key", "lis_person_contact_email_primary"]
-                    }
-                }
-            }
-        },
-        "responses": {
-            "200": {
-                "description": "Successful operation"
-            }
-        }
-    }
-});
+/**
+ * @openapi
+ * paths:
+ *   /launch/{toolId}:  # Replace with your actual basePath value
+ *     get:
+ *       tags:
+ *         - pblc
+ *       summary: Launches an existing tool by toolId (CMI5)
+ *       operationId: quickLaunch
+ *       description: The displayed parameters do not reflect all the necessary parameters to launch the tools. Please refer to the CMI5 specification for more information. In addition to the attributes required for the specifications, an email must always be included.
+ *       parameters:
+ *         - name: toolId
+ *           in: path
+ *           required: true
+ *           description: toolId of launchable object
+ *           example: toolId
+ *           schema:
+ *              type: string
+ *         - name: accessToken
+ *           in: query
+ *           required: true
+ *           description: Access Token of user
+ *           example: example-access-token
+ *           schema:
+ *              type: string
+ *         - name: endpoint
+ *           in: query
+ *           description: LRS endpoint (CMI5)
+ *           example: endpoint
+ *           schema:
+ *              type: string
+ *         - name: fetch
+ *           in: query
+ *           description: Fetch API endpoint (CMI5)
+ *           example: fetch
+ *           schema:
+ *              type: string
+ *         - name: registration
+ *           in: query
+ *           description: Registration (CMI5)
+ *           example: registration
+ *           schema:
+ *              type: string
+ *         - name: activityId
+ *           in: query
+ *           description: ActivityId of tool (CMI5)
+ *           example: activityId
+ *           schema:
+ *              type: string
+ *         - name: actor
+ *           in: query
+ *           description: Experience-API Actor object (CMI5)
+ *           example: actor
+ *           schema:
+ *              type: string
+ *         - name: iss
+ *           in: query
+ *           description: (LTI13)
+ *           example: clm
+ *           schema:
+ *              type: string
+ *         - name: login_hint
+ *           in: query
+ *           description: (LTI13)
+ *           example: 12345
+ *           schema:
+ *              type: string
+ *       responses:
+ *         200:
+ *           description: Successful operation
+ *     post:
+ *       tags:
+ *         - pblc
+ *       summary: Launches an existing tool by toolId (LTI11)
+ *       description: The displayed parameters do not reflect all the necessary parameters to launch the tools. Please refer to the LTI11 specification for more information. In addition to the attributes required for the specifications, an email must always be included.
+ *       parameters:
+ *         - name: toolId
+ *           in: path
+ *           required: true
+ *           description: toolId of launchable object
+ *           example: toolId
+ *           schema:
+ *              type: string
+ *       requestBody:
+ *         content:
+ *           application/x-www-form-urlencoded:
+ *             schema:
+ *               type: object
+ *               required: ['oauth_consumer_key', 'lis_person_contact_email_primary']
+ *               properties:
+ *                 oauth_consumer_key:
+ *                   type: string
+ *                   description: the access-token of the user
+ *                   default: example-access-token
+ *                 lis_person_contact_email_primary:
+ *                   type: string
+ *                   description: the email of the user
+ *                   default: fame@fokus.fraunhofer.de
+ *       responses:
+ *         200:
+ *           description: Successful operation
+ */
 controller.router.use('/:toolId', controller.specTranslator);
 exports.default = controller;

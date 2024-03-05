@@ -1,3 +1,4 @@
+"use strict";
 /* -----------------------------------------------------------------------------
  *  Copyright (c) 2023, Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V.
  *
@@ -11,7 +12,7 @@
  *  GNU Affero General Public License for more details.
  *
  *  You should have received a copy of the GNU Affero General Public License
- *  along with this program. If not, see <https://www.gnu.org/licenses/>.  
+ *  along with this program. If not, see <https://www.gnu.org/licenses/>.
  *
  *  No Patent Rights, Trademark Rights and/or other Intellectual Property
  *  Rights other than the rights under this license are granted.
@@ -19,7 +20,7 @@
  *
  *  For any other rights, a separate agreement needs to be closed.
  *
- *  For more information please contact:  
+ *  For more information please contact:
  *  Fraunhofer FOKUS
  *  Kaiserin-Augusta-Allee 31
  *  10589 Berlin, Germany
@@ -27,7 +28,6 @@
  *  famecontact@fokus.fraunhofer.de
  * -----------------------------------------------------------------------------
  */
-"use strict";
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -51,12 +51,13 @@ const oauth = require('oauth-sign');
 const encryptService = new clm_core_1.EncryptService(process.env.LOGIN_HINT_ENCRYPT_KEY || 'secret');
 const issuers = [];
 const initRequest = [];
-let baseurl = (process.env.GATEWAY_URL || process.env.DEPLOY_URL || '') + (process.env.BASE_PATH || '/launch');
-const deploy_url = process.env.DEPLOY_URL || 'http://localhost:3001';
+let baseurl = (process.env.DEPLOY_URL || "http://gateway/api") + (process.env.BASE_PATH || '/launch');
+// const deploy_url = process.env.DEPLOY_URL || 'http://localhost:3001'
+const gateway_url = process.env.GATEWAY_URL || 'http://localhost/api';
 class LaunchService {
     initialize_lti13_launch(tool, user) {
         return (req, res, next) => __awaiter(this, void 0, void 0, function* () {
-            let iss = deploy_url + '/launch';
+            let iss = gateway_url + '/launch';
             let login_hint = encryptService.encrypt(user._id);
             let { target_link_uri, oidc_login_url, client_id } = tool;
             try {
@@ -70,8 +71,9 @@ class LaunchService {
     launch_lti11_tool(options) {
         return (req, res, next) => __awaiter(this, void 0, void 0, function* () {
             const { accessToken, toolId, returnUrl, target } = options;
+            let baseurl = (process.env.GATEWAY_URL || process.env.DEPLOY_URL) + (process.env.BASE_PATH || '/launch');
             try {
-                const resp = yield axios_1.default.get(baseurl + `/lti-11/${toolId}/launchdata`, {
+                const resp = yield axios_1.default.get(gateway_url + `/launch/lti-11/${toolId}/launchdata`, {
                     headers: {
                         'x-access-token': accessToken,
                         // Authorization,
@@ -193,7 +195,7 @@ class LaunchService {
             lti_message_type: 'basic-lti-launch-request',
             lti_version: 'LTI-1p0',
             oauth_callback: 'about:blank',
-            oauth_nonce: btoa(timestamp),
+            oauth_nonce: Date.now(),
             oauth_timestamp: timestamp.toString(),
             oauth_signature_method: 'HMAC-SHA1',
             oauth_version: '1.0',
@@ -202,6 +204,9 @@ class LaunchService {
     }
     getPersonalDataParams(user, res) {
         const tool = res.locals.tool;
+        const isNotEmail = user.email.indexOf('@') === -1;
+        if (isNotEmail)
+            user.email = user.email.replace(/-/g, "") + '@clm.de';
         let personalParams = {
             lis_person_name_given: user.givenName,
             lis_person_contact_email_primary: user.email,
@@ -217,7 +222,7 @@ class LaunchService {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 let decoded = yield clm_core_1.jwtServiceInstance.verifyToken(accessToken);
-                if (decoded._id !== email)
+                if (decoded.sub !== email)
                     throw { message: `The access token is not from user: ${email}`, status: 400 };
                 const user = yield clm_core_1.userBDTOInstance.findById(email);
                 const tool = yield clm_ext_learning_objects_1.CourseStructureJSON.getUserTool(user._id, toolId);
@@ -254,6 +259,9 @@ class LaunchService {
         return (req, res, next) => __awaiter(this, void 0, void 0, function* () {
             let returnUrl = req.query.returnUrl || '';
             let target = req.query.target || 'iframe';
+            console.log({
+                type
+            });
             switch (type) {
                 case 'LTI11': {
                     return this.launch_lti11_tool({ returnUrl, target, accessToken, toolId: tool._id })(req, res, next);

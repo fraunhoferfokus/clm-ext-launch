@@ -6,6 +6,7 @@
   "description": "",
   "scripts": {
     "dev": "npx nodemon --legacy-watch server.ts",
+    "start": "node dist/server.js",
     "build": "rm -rf ./dist && npx tsc",
     "build-commit": "npm run build && npm run git-push",
     "git-push": "git add . && git commit -m 'updated lib' && git push",
@@ -34,11 +35,11 @@
     "@types/uuid": "^8.3.4",
     "axios": "^0.27.2",
     "btoa": "^1.2.1",
-    "cors": "^2.8.5",
     "clm-core": "git+https://github.com/fraunhoferfokus/clm-core.git#main",
     "clm-ext-learning_objects": "git+https://github.com/fraunhoferfokus/clm-ext-learning_objects.git#main",
     "clm-ext-service_providers": "git+https://github.com/fraunhoferfokus/clm-ext-service_providers.git#main",
     "clm-ext-tools": "git+https://github.com/fraunhoferfokus/clm-ext-tools.git#main",
+    "cors": "^2.8.5",
     "crypto-js": "^4.1.1",
     "dotenv": "^16.0.1",
     "ejs": "^3.1.8",
@@ -53,10 +54,10 @@
     "sha1": "^1.1.1",
     "swagger-jsdoc": "^6.2.8",
     "ts-node": "^10.8.1",
-    "typescript": "^4.7.3",
     "uuid": "^8.3.2"
   },
   "devDependencies": {
-    "nodemon": "^2.0.16"
+    "nodemon": "^2.0.16",
+    "typescript": "^5.3.3"
   }
 }
