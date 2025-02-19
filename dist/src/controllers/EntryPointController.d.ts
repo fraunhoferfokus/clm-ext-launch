@@ -5,8 +5,6 @@ declare class LaunchController extends BaseExtensionCtrl {
     lti11form: express.Handler;
     cmi5form: express.Handler;
     lti11_launchData: express.Handler;
-    oidc_auth_endpoint: express.Handler;
-    jwks: express.Handler;
 }
 declare const controller: LaunchController;
 export default controller;

@@ -1,4 +1,3 @@
-"use strict";
 /* -----------------------------------------------------------------------------
  *  Copyright (c) 2023, Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V.
  *
@@ -28,6 +27,8 @@
  *  famecontact@fokus.fraunhofer.de
  * -----------------------------------------------------------------------------
  */
+"use strict";
+
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -42,10 +43,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const axios_1 = __importDefault(require("axios"));
-const clm_ext_learning_objects_1 = require("clm-ext-learning_objects");
-const js_sha512_1 = require("js-sha512");
-const query_string_1 = __importDefault(require("query-string"));
 const clm_core_1 = require("clm-core");
+const clm_ext_learning_objects_1 = require("clm-ext-learning_objects");
+const query_string_1 = __importDefault(require("query-string"));
+const sha1_1 = __importDefault(require("sha1"));
 const btoa = require('btoa');
 const oauth = require('oauth-sign');
 const encryptService = new clm_core_1.EncryptService(process.env.LOGIN_HINT_ENCRYPT_KEY || 'secret');
@@ -55,13 +56,58 @@ let baseurl = (process.env.DEPLOY_URL || "http://gateway/api") + (process.env.BA
 // const deploy_url = process.env.DEPLOY_URL || 'http://localhost:3001'
 const gateway_url = process.env.GATEWAY_URL || 'http://localhost/api';
 class LaunchService {
-    initialize_lti13_launch(tool, user) {
+    initialize_lti13_launch(tool, user, context) {
         return (req, res, next) => __awaiter(this, void 0, void 0, function* () {
-            let iss = gateway_url + '/launch';
-            let login_hint = encryptService.encrypt(user._id);
-            let { target_link_uri, oidc_login_url, client_id } = tool;
+            var _a, _b;
             try {
-                return res.redirect(`${oidc_login_url}?iss=${iss}&login_hint=${encodeURIComponent(login_hint)}&target_link_uri=${target_link_uri}&client_id=${client_id}`);
+                let deployUrl = process.env.DEPLOY_URL + '/launch/lti13/platformDetails';
+                let platformDetails = (yield axios_1.default.get(deployUrl)).data;
+                let { iss, clientId } = platformDetails;
+                let { launchableUrl, oidc_login_url, deployment_id } = tool;
+                let login_hint = encryptService.encrypt(JSON.stringify({
+                    client_id: clientId,
+                    clientId: clientId,
+                    target_link_uri: launchableUrl,
+                    userId: user._id,
+                    toolId: tool._id,
+                    roles: tool.roles,
+                    context,
+                    deployment_id,
+                    resourceLinkId: "1",
+                    customId: ((_b = (_a = tool === null || tool === void 0 ? void 0 : tool.customProperties) === null || _a === void 0 ? void 0 : _a.find(({ key, value }) => key === 'id')) === null || _b === void 0 ? void 0 : _b.value) || '1'
+                }));
+                return res.render('lti13/init', {
+                    clientId,
+                    iss,
+                    target_link_uri: launchableUrl,
+                    lti_message_hint: 'My LTI message hint!',
+                    login_hint,
+                    oidc_login_url,
+                    deployment_id
+                });
+                // let oidcResponse = await axios.post(oidc_login_url as string,
+                //     queryString.stringify({
+                //         clientId,
+                //         iss,
+                //         target_link_uri: launchableUrl,
+                //         lti_message_hint: 'My LTI message hint!',
+                //         lti_deployment_id: deployment_id,
+                //         login_hint
+                //     }),
+                //     {
+                //         headers: {
+                //             'Content-Type': 'application/x-www-form-urlencoded'
+                //         },
+                //     }
+                // )
+                // // If the OIDC endpoint responds with a redirect
+                // if (oidcResponse.status === 302 || oidcResponse.status === 301) {
+                //     const redirectUrl = oidcResponse.headers.location;
+                //     res.redirect(redirectUrl); // Redirect the client to the OIDC endpoint's redirect URL
+                // } else {
+                //     // Handle other responses as needed
+                //     res.status(oidcResponse.status).send(oidcResponse.data);
+                // }
             }
             catch (err) {
                 return next({ message: err, status: 401 });
@@ -70,24 +116,27 @@ class LaunchService {
     }
     launch_lti11_tool(options) {
         return (req, res, next) => __awaiter(this, void 0, void 0, function* () {
-            const { accessToken, toolId, returnUrl, target } = options;
+            const { accessToken, toolId, returnUrl, target, context } = options;
             let baseurl = (process.env.GATEWAY_URL || process.env.DEPLOY_URL) + (process.env.BASE_PATH || '/launch');
+            let body = req.body;
             try {
                 const resp = yield axios_1.default.get(gateway_url + `/launch/lti-11/${toolId}/launchdata`, {
                     headers: {
                         'x-access-token': accessToken,
                         // Authorization,
                     },
-                    params: {
-                        returnUrl,
-                        target
-                    }
+                    params: Object.assign({ returnUrl,
+                        target,
+                        context }, body)
                 });
                 try {
                     const { launchData, redirectUrl } = resp.data;
                     const html = yield axios_1.default.get(baseurl + `/lti-11/form`, {
-                        params: Object.assign(Object.assign({}, launchData), { redirectUrl, directLaunch: true, returnUrl,
-                            target }),
+                        params: {
+                            launchData,
+                            redirectUrl,
+                            returnUrl,
+                        },
                     });
                     res.send(html.data);
                 }
@@ -132,6 +181,7 @@ class LaunchService {
                 let user = req.requestingUser;
                 let tool = yield clm_ext_learning_objects_1.CourseStructureJSON.getUserTool(user._id, req.params.toolId);
                 res.locals.tool = tool;
+                const { context_id, context_title, context_label, context_type } = JSON.parse(req.query.context || "{}");
                 if (!tool)
                     return next({ message: `not permitted to access tool: ${req.params.toolId}`, status: 401 });
                 if (tool.type != 'LTI11') {
@@ -149,7 +199,7 @@ class LaunchService {
                     password || rootPassword,
                 ];
                 launchUrl = launchableUrl;
-                fullData = this.getFullLaunchDataObject(key, secret, launchUrl, user, req.query.resource_link_id, req.query.context_id, toolId, res, req);
+                fullData = this.getFullLaunchDataObject(key, secret, launchUrl, user, req.query.resource_link_id, context_id, context_title, context_label, context_type, res, req);
                 launchUrl = launchUrl.replace(/\?custom_navigate_to=.*/, '');
                 return res.json({
                     launchData: fullData,
@@ -161,11 +211,14 @@ class LaunchService {
             }
         });
     }
-    getFullLaunchDataObject(key, secret, rootUrl, user, resource_link_id, context_id, toolId, res, req) {
-        let data = Object.assign(Object.assign({}, this.getStandardLTIParams()), this.getPersonalDataParams(user, res));
+    getFullLaunchDataObject(key, secret, rootUrl, user, resource_link_id, context_id, context_title, context_label, context_type, res, req) {
+        let data = Object.assign(Object.assign({}, this.getOtherParameters(user, req, res)), this.getStandardLTIParams());
         data['oauth_consumer_key'] = key.trim();
         data['resource_link_id'] = resource_link_id || 1;
         data['context_id'] = context_id || 1;
+        data['context_title'] = context_title || '';
+        data['context_label'] = context_label || '';
+        data['context_type'] = context_type || '';
         data['tool_consumer_instance_guid'] = `CLM.${process.env.DEPLOY_URL}`;
         data['launch_presentation_return_url'] = req.query.returnUrl || '';
         const tool = res.locals.tool;
@@ -184,8 +237,8 @@ class LaunchService {
             const parsed = query_string_1.default.parse(query);
             data = Object.assign(Object.assign({}, data), Object.assign({}, parsed));
         }
-        data.lis_result_sourcedid = user._id + '[]' + toolId;
-        data.lis_outcome_service_url = process.env.DEPLOY_URL + '/grading-service';
+        // data.lis_result_sourcedid = user._id + '[]' + toolId;
+        // data.lis_outcome_service_url = process.env.DEPLOY_URL + '/grading-service';
         data['oauth_signature'] = oauth.hmacsign('POST', urlWithoutQuery.trim(), data, secret.trim());
         return data;
     }
@@ -202,21 +255,30 @@ class LaunchService {
         };
         return params;
     }
-    getPersonalDataParams(user, res) {
+    getOtherParameters(user, req, res) {
         const tool = res.locals.tool;
         const isNotEmail = user.email.indexOf('@') === -1;
         if (isNotEmail)
             user.email = user.email.replace(/-/g, "") + '@clm.de';
-        let personalParams = {
+        let otherParameters = {
             lis_person_name_given: user.givenName,
             lis_person_contact_email_primary: user.email,
             lis_person_name_family: user.familyName,
             lis_person_name_full: user.givenName + ' ' + user.familyName,
             roles: tool.roles.join(','),
             launch_presentation_document_target: tool.target,
-            user_id: (0, js_sha512_1.sha512)(user.email)
+            user_id: (0, sha1_1.default)("mailto:" + user.email),
+            // custom_access_token: req.headers['x-access-token']
         };
-        return personalParams;
+        // client_defined user attributes
+        let params = req.query;
+        for (let queryParam in params) {
+            let val = params[queryParam];
+            if (!['context', 'oauth_signature', 'user_id', 'lis_person_contact_email_primary', 'roles'].find((item) => item === queryParam)) {
+                otherParameters[queryParam] = val;
+            }
+        }
+        return otherParameters;
     }
     getUserAndTool(accessToken, email, toolId) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -231,7 +293,7 @@ class LaunchService {
                 return { user, tool };
             }
             catch (err) {
-                console.log(err);
+                console.error(err);
                 throw { message: err, status: 500 };
             }
         });
@@ -255,19 +317,16 @@ class LaunchService {
             throw { message: "Email has to be provided in the 'actor' attribute! (query)", status: 400 };
         return { email, accessToken };
     }
-    launchSpecification(type, tool, user, accessToken) {
+    launchSpecification(type, tool, user, accessToken, context) {
         return (req, res, next) => __awaiter(this, void 0, void 0, function* () {
             let returnUrl = req.query.returnUrl || '';
             let target = req.query.target || 'iframe';
-            console.log({
-                type
-            });
             switch (type) {
                 case 'LTI11': {
-                    return this.launch_lti11_tool({ returnUrl, target, accessToken, toolId: tool._id })(req, res, next);
+                    return this.launch_lti11_tool({ returnUrl, target, accessToken, toolId: tool._id, context })(req, res, next);
                 }
                 case 'LTI13': {
-                    return this.initialize_lti13_launch(tool, user)(req, res, next);
+                    return this.initialize_lti13_launch(tool, user, context)(req, res, next);
                     // throw { message: 'LTI13 currently under development...', status: 500 }
                 }
                 case 'CMI5': {

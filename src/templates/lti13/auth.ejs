@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirect Response</title>
+</head>
+<body>
+    <form id="redirectForm" action="<%= redirect_uri %>?id_token=<%= encodeURIComponent(id_token) %>&state=<%= encodeURIComponent(state) %>" method="POST">
+        <input type="hidden" name="id_token" value="<%= id_token %>" />
+        <input type="hidden" name="state" value="<%= state %>" />
+    </form>
+
+    <script type="text/javascript">
+        // Selbst ausführendes Formular
+        document.getElementById('redirectForm').submit();
+    </script>
+</body>
+</html>

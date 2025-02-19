@@ -1,17 +1,3 @@
-"use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
 /* -----------------------------------------------------------------------------
  *  Copyright (c) 2023, Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V.
  *
@@ -41,6 +27,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
  *  famecontact@fokus.fraunhofer.de
  * -----------------------------------------------------------------------------
  */
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+
 const clm_core_1 = require("clm-core");
 const clm_ext_service_providers_1 = require("clm-ext-service_providers");
 const axios_1 = __importDefault(require("axios"));
@@ -108,14 +109,10 @@ class Cmi5Controller extends clm_core_1.BaseExtensionCtrl {
         });
         this.launch = (req, res, next) => __awaiter(this, void 0, void 0, function* () {
             try {
-                console.log('no');
                 let user = req.requestingUser;
                 let tool = yield clm_ext_learning_objects_1.CourseStructureJSON.getUserTool(user._id, req.params.toolId);
                 if (!tool)
                     return next({ message: `not permitted to access tool: ${req.params.toolId}`, status: 401 });
-                // const { tool, lrsIds } = res.locals.toolWrapper;
-                // -------------------------------------------------------------------//
-                //launch
                 const name = (0, sha1_1.default)(user.email);
                 const stringifiedAgent = JSON.stringify({
                     objectType: 'Agent',
@@ -124,10 +121,7 @@ class Cmi5Controller extends clm_core_1.BaseExtensionCtrl {
                         name
                     }
                 });
-                console.log('oh');
-                // await this.lrsDependency(tool.lrss!, tool, user, stringifiedAgent);
                 const token = Buffer.from(`${(0, uuid_1.v4)()}:${tool.lrss.join(',')}`).toString('base64');
-                console.log('bro');
                 const fetch = `${baseurl}/cmi5/authTokenGenerator/${token}`;
                 const endpoint = `${baseurl}/cmi5/data/xAPI`;
                 state[token] = true;
@@ -138,7 +132,6 @@ class Cmi5Controller extends clm_core_1.BaseExtensionCtrl {
                     activityId: tool.activityId,
                     actor: stringifiedAgent
                 });
-                console.log('jo');
                 return res.json({ redirect_url: `${tool.launchableUrl}?${lastStringified}` });
             }
             catch (err) {

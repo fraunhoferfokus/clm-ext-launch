@@ -38,8 +38,6 @@ import express from 'express'
 import path from 'path'
 import EntryPointController from './src/controllers/EntryPointController'
 const app = express()
-
-
 const basePath = process.env.BASE_PATH || '/launch'
 // paths which require no API-Token
 const ECLUDED_PATHS: string[] = [
@@ -54,6 +52,10 @@ const ECLUDED_PATHS: string[] = [
     `${basePath}/lti-11/form`,
     `${basePath}/lti-11/:toolId/launchdata`,
     `${basePath}/swagger`,
+    `${basePath}/lti-13/platformDetails`,
+    `${basePath}/lti-13/auth`,
+    `${basePath}/lti-13/jwks`,
+    `${basePath}/lti-13/token`,
     '/health',
 ]
 
@@ -78,7 +80,6 @@ app.get('/health', (req, res) => res.send('OK'))
 // app.use(AuthGuard.requireAPIToken(ECLUDED_PATHS))
 app.use(basePath, EntryPointController.router)
 app.use(errHandler);
-
 
 Promise.all([
     pathBDTOInstance.registerRoutes(app, ECLUDED_PATHS),

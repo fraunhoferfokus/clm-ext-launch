@@ -29,41 +29,91 @@
  */
 
 
-import express from 'express'
-import axios from 'axios'
-import { CourseStructureJSON } from "clm-ext-learning_objects";
-import { sha512 } from 'js-sha512'
-import queryString from 'query-string'
-import { v4 as uuid } from 'uuid'
+import axios from 'axios';
 import { EncryptService, jwtServiceInstance, userBDTOInstance, UserModel } from "clm-core";
+import { CourseStructureJSON } from "clm-ext-learning_objects";
 import { ToolModel } from "clm-ext-tools";
-import fs from 'fs'
-import { generateKeyPairSync } from 'crypto'
+import { SHA512 } from 'crypto-js';
+import express from 'express';
+import queryString from 'query-string';
+import sha1 from 'sha1';
+
 const btoa = require('btoa')
 const oauth = require('oauth-sign')
-
-
 const encryptService = new EncryptService(process.env.LOGIN_HINT_ENCRYPT_KEY || 'secret');
-
-
 const issuers: any[] = []
 const initRequest = [];
+
 let baseurl = (process.env.DEPLOY_URL || "http://gateway/api") + (process.env.BASE_PATH || '/launch')
 // const deploy_url = process.env.DEPLOY_URL || 'http://localhost:3001'
 const gateway_url = process.env.GATEWAY_URL || 'http://localhost/api'
 
+export type Context = {
+    context_id: string,
+    context_title: string,
+    context_label: string
+    context_type: string
+}
+
 class LaunchService {
 
-    private initialize_lti13_launch(tool: ToolModel, user: UserModel): express.Handler {
+    private initialize_lti13_launch(tool: ToolModel & { roles?: string[] }, user: UserModel, context: Context): express.Handler {
         return async (req, res, next) => {
-
-            let iss = gateway_url + '/launch'
-            let login_hint = encryptService.encrypt(user._id)
-            let { target_link_uri, oidc_login_url, client_id } = tool
-
             try {
-                return res.redirect(`${oidc_login_url}?iss=${iss}&login_hint=${encodeURIComponent(login_hint)}&target_link_uri=${target_link_uri}&client_id=${client_id}`)
-            } catch (err) {
+                let deployUrl = process.env.DEPLOY_URL + '/launch/lti13/platformDetails'
+                let platformDetails = (await axios.get(deployUrl)).data
+                let { iss, clientId } = platformDetails
+                let { launchableUrl, oidc_login_url, deployment_id } = tool
+
+                let login_hint = encryptService.encrypt(JSON.stringify({
+                    client_id: clientId,
+                    clientId: clientId,
+                    target_link_uri: launchableUrl,
+                    userId: user._id,
+                    toolId: tool._id,
+                    roles: tool.roles,
+                    context,
+                    deployment_id,
+                    resourceLinkId: "1",
+                    customId: tool?.customProperties?.find(({ key, value }) => key === 'id')?.value || '1'
+                }))
+
+                return res.render('lti13/init', {
+                    clientId,
+                    iss,
+                    target_link_uri: launchableUrl,
+                    lti_message_hint: 'My LTI message hint!',
+                    login_hint,
+                    oidc_login_url,
+                    deployment_id
+                })
+
+                // let oidcResponse = await axios.post(oidc_login_url as string,
+                //     queryString.stringify({
+                //         clientId,
+                //         iss,
+                //         target_link_uri: launchableUrl,
+                //         lti_message_hint: 'My LTI message hint!',
+                //         lti_deployment_id: deployment_id,
+                //         login_hint
+                //     }),
+                //     {
+                //         headers: {
+                //             'Content-Type': 'application/x-www-form-urlencoded'
+                //         },
+                //     }
+                // )
+
+                // // If the OIDC endpoint responds with a redirect
+                // if (oidcResponse.status === 302 || oidcResponse.status === 301) {
+                //     const redirectUrl = oidcResponse.headers.location;
+                //     res.redirect(redirectUrl); // Redirect the client to the OIDC endpoint's redirect URL
+                // } else {
+                //     // Handle other responses as needed
+                //     res.status(oidcResponse.status).send(oidcResponse.data);
+                // }
+
+            } catch (err: any) {
                 return next({ message: err, status: 401 });
             }
         }
@@ -71,11 +121,23 @@ class LaunchService {
 
     }
 
-    private launch_lti11_tool(options: { accessToken: string, toolId: string, returnUrl: string, target: string }): express.Handler {
+    private launch_lti11_tool(options: {
+        accessToken: string, toolId: string, returnUrl: string, target: string,
+        context: {
+            context_id: string,
+            context_title: string,
+            context_label: string
+            context_type: string
+        }
+    }): express.Handler {
 
         return async (req, res, next) => {
-            const { accessToken, toolId, returnUrl, target } = options;
+            const { accessToken, toolId, returnUrl, target, context } = options;
             let baseurl = (process.env.GATEWAY_URL || process.env.DEPLOY_URL) + (process.env.BASE_PATH || '/launch')
+
+
+            let body = req.body
+
             try {
                 const resp = await axios.get(
                     gateway_url + `/launch/lti-11/${toolId}/launchdata`,
@@ -86,7 +148,9 @@ class LaunchService {
                         },
                         params: {
                             returnUrl,
-                            target
+                            target,
+                            context,
+                            ...body
                         }
 
                     }
@@ -97,11 +161,9 @@ class LaunchService {
                         baseurl + `/lti-11/form`,
                         {
                             params: {
-                                ...launchData,
+                                launchData,
                                 redirectUrl,
-                                directLaunch: true,
                                 returnUrl,
-                                target
                             },
                         }
                     );
@@ -156,6 +218,7 @@ class LaunchService {
                 let user = req.requestingUser!;
                 let tool = await CourseStructureJSON.getUserTool(user._id, req.params.toolId);
                 res.locals.tool = tool
+                const { context_id, context_title, context_label, context_type } = JSON.parse(req.query.context as string || "{}")
 
                 if (!tool) return next({ message: `not permitted to access tool: ${req.params.toolId}`, status: 401 })
 
@@ -189,11 +252,14 @@ class LaunchService {
                     launchUrl,
                     user,
                     req.query.resource_link_id as string,
-                    req.query.context_id as string,
-                    toolId,
+                    context_id as string,
+                    context_title as string,
+                    context_label as string,
+                    context_type as string,
                     res,
                     req
                 );
+
                 launchUrl = launchUrl.replace(
                     /\?custom_navigate_to=.*/,
                     ''
@@ -218,15 +284,23 @@ class LaunchService {
         user: any,
         resource_link_id: string,
         context_id: string,
-        toolId: string,
+        context_title: string,
+        context_label: string,
+        context_type: string,
         res: express.Response,
         req: express.Request
     ) {
-        let data: any = { ...this.getStandardLTIParams(), ...this.getPersonalDataParams(user, res) }
+        let data: any = {
+            ...this.getOtherParameters(user, req, res),
+            ...this.getStandardLTIParams(),
+        }
 
         data['oauth_consumer_key'] = key.trim();
         data['resource_link_id'] = resource_link_id || 1;
         data['context_id'] = context_id || 1;
+        data['context_title'] = context_title || '';
+        data['context_label'] = context_label || '';
+        data['context_type'] = context_type || '';
         data['tool_consumer_instance_guid'] = `CLM.${process.env.DEPLOY_URL}`;
 
         data['launch_presentation_return_url'] = req.query.returnUrl || ''
@@ -249,8 +323,11 @@ class LaunchService {
             data = { ...data, ...{ ...parsed } };
         }
 
-        data.lis_result_sourcedid = user._id + '[]' + toolId;
-        data.lis_outcome_service_url = process.env.DEPLOY_URL + '/grading-service';
+
+        // data.lis_result_sourcedid = user._id + '[]' + toolId;
+        // data.lis_outcome_service_url = process.env.DEPLOY_URL + '/grading-service';
+
+
 
 
         data['oauth_signature'] = oauth.hmacsign(
@@ -277,20 +354,33 @@ class LaunchService {
         return params;
     }
 
-    private getPersonalDataParams(user: any, res: express.Response) {
+    private getOtherParameters(user: any, req: express.Request, res: express.Response) {
         const tool = res.locals.tool;
         const isNotEmail = user.email.indexOf('@') === -1;
         if (isNotEmail) user.email = user.email.replace(/-/g, "") + '@clm.de';
-        let personalParams = {
+
+        let otherParameters: { [key: string]: any } = {
             lis_person_name_given: user.givenName,
             lis_person_contact_email_primary: user.email,
             lis_person_name_family: user.familyName,
             lis_person_name_full: user.givenName + ' ' + user.familyName,
             roles: tool.roles.join(','),
             launch_presentation_document_target: tool.target,
-            user_id: sha512(user.email)
-        };
-        return personalParams;
+            user_id: sha1("mailto:" + user.email),
+            // custom_access_token: req.headers['x-access-token']
+        }
+
+            ;
+
+        // client_defined user attributes
+        let params = req.query as { [key: string]: any }
+        for (let queryParam in params) {
+            let val = params[queryParam]
+            if (!['context', 'oauth_signature', 'user_id', 'lis_person_contact_email_primary', 'roles'].find((item) => item === queryParam)) {
+                otherParameters[queryParam] = val
+            }
+        }
+        return otherParameters;
     }
 
     async getUserAndTool(accessToken: string, email: string, toolId: string): Promise<{ tool: ToolModel, user: UserModel }> {
@@ -304,7 +394,7 @@ class LaunchService {
             return { user, tool }
         }
         catch (err) {
-            console.log(err)
+            console.error(err)
             throw { message: err, status: 500 }
         }
     }
@@ -329,21 +419,18 @@ class LaunchService {
         return { email, accessToken }
     }
 
-    launchSpecification(type: ('CMI5' | 'LTI13' | 'LTI11'), tool: ToolModel, user: UserModel, accessToken: string): express.Handler {
+    launchSpecification(type: ('CMI5' | 'LTI13' | 'LTI11'), tool: ToolModel, user: UserModel, accessToken: string,
+        context: Context): express.Handler {
         return async (req, res, next) => {
             let returnUrl = req.query.returnUrl as string || ''
             let target = req.query.target as string || 'iframe'
 
-            console.log({
-                type
-            })
-
             switch (type) {
                 case 'LTI11': {
-                    return this.launch_lti11_tool({ returnUrl, target, accessToken, toolId: tool._id })(req, res, next)
+                    return this.launch_lti11_tool({ returnUrl, target, accessToken, toolId: tool._id, context })(req, res, next)
                 }
                 case 'LTI13': {
-                    return this.initialize_lti13_launch(tool, user)(req, res, next)
+                    return this.initialize_lti13_launch(tool, user, context)(req, res, next)
                     // throw { message: 'LTI13 currently under development...', status: 500 }
                 }
                 case 'CMI5': {

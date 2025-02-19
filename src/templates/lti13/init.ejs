@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OIDC Login</title>
+</head>
+
+<body>
+    <form id="oidcForm" action="<%= oidc_login_url %>" method="POST">
+        <input type="hidden" name="clientId" value="<%= clientId %>" />
+        <input type="hidden" name="iss" value="<%= iss %>" />
+        <input type="hidden" name="target_link_uri" value="<%= target_link_uri %>" />
+        <input type="hidden" name="lti_message_hint" value="My LTI message hint!" />
+        <input type="hidden" name="lti_deployment_id" value="<%= deployment_id %>" />
+        <input type="hidden" name="login_hint" value="<%= login_hint %>" />
+    </form>
+
+    <script type="text/javascript">
+        // Selbst ausführendes Formular
+        document.getElementById('oidcForm').submit();
+    </script>
+</body>
+
+</html>

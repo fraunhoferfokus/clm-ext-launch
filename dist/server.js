@@ -1,4 +1,3 @@
-"use strict";
 /* -----------------------------------------------------------------------------
  *  Copyright (c) 2023, Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V.
  *
@@ -28,11 +27,24 @@
  *  famecontact@fokus.fraunhofer.de
  * -----------------------------------------------------------------------------
  */
+"use strict";
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ROOT_DIR = void 0;
+/* -----------------------------------------------------------------------------
+ * Copyright (c) 2023, Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V.
+ * All rights reserved.
+ *
+ * For more information please contact:
+ * Fraunhofer FOKUS
+ * Kaiserin-Augusta-Allee 31
+ * 10589 Berlin, Germany
+ * https://www.fokus.fraunhofer.de/go/fame
+ * famecontact@fokus.fraunhofer.de
+ * -----------------------------------------------------------------------------
+ */
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 const PORT = process.env.PORT;
@@ -57,6 +69,10 @@ const ECLUDED_PATHS = [
     `${basePath}/lti-11/form`,
     `${basePath}/lti-11/:toolId/launchdata`,
     `${basePath}/swagger`,
+    `${basePath}/lti-13/platformDetails`,
+    `${basePath}/lti-13/auth`,
+    `${basePath}/lti-13/jwks`,
+    `${basePath}/lti-13/token`,
     '/health',
 ];
 app.use(function (req, res, next) {

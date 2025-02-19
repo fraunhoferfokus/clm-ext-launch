@@ -106,17 +106,10 @@ class Cmi5Controller extends BaseExtensionCtrl {
 
     launch: express.Handler = async (req, res, next) => {
         try {
-
-            console.log('no')
-
             let user = req.requestingUser!;
 
             let tool = await CourseStructureJSON.getUserTool(user._id, req.params.toolId);
             if (!tool) return next({ message: `not permitted to access tool: ${req.params.toolId}`, status: 401 })
-            // const { tool, lrsIds } = res.locals.toolWrapper;
-
-            // -------------------------------------------------------------------//
-            //launch
 
             const name = sha1(user.email);
             const stringifiedAgent = JSON.stringify({
@@ -127,11 +120,8 @@ class Cmi5Controller extends BaseExtensionCtrl {
                 }
             })
 
-            console.log('oh')
-            // await this.lrsDependency(tool.lrss!, tool, user, stringifiedAgent);
             const token = Buffer.from(`${uuid()}:${tool.lrss!.join(',')}`).toString('base64');
 
-            console.log('bro')
             const fetch =
                 `${baseurl}/cmi5/authTokenGenerator/${token}`
 
@@ -148,8 +138,6 @@ class Cmi5Controller extends BaseExtensionCtrl {
                 activityId: tool.activityId,
                 actor: stringifiedAgent
             })
-
-            console.log('jo')
 
             return res.json({ redirect_url: `${tool.launchableUrl}?${lastStringified}` })
 

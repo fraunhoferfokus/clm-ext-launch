@@ -29,20 +29,15 @@
  */
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-import axios from 'axios';
 import { AuthGuard, BaseExtensionCtrl, EncryptService } from "clm-core";
-import { CourseStructureJSON, loBDTOInstance } from "clm-ext-learning_objects";
-import { toolBDTOInstance } from 'clm-ext-tools';
-import { generateKeyPair } from 'crypto';
 import ejs from 'ejs';
 import express from 'express';
 import fs from 'fs';
-import jwt, { JwtHeader, JwtPayload } from 'jsonwebtoken';
 import swaggerJsdoc from 'swagger-jsdoc';
-import { v4 as uuid } from 'uuid';
+import { ROOT_DIR } from '../../server';
 import LaunchService from "../services/LaunchService";
 import cmi5controller from './cmi5Controller';
-import { ROOT_DIR } from '../../server';
+import lti13Controller from './lti13Controller';
 
 
 
@@ -135,48 +130,14 @@ const encryptService = new EncryptService(process.env.LOGIN_HINT_ENCRYPT_KEY || 
 const lti11form = fs.readFileSync(ROOT_DIR + '/src/templates/lti11form.ejs').toString()
 const lti11formSelf = fs.readFileSync(ROOT_DIR + '/src/templates/lti11formSelf.ejs').toString()
 
-const publicKeyPath = '/src/jwks/public_key.pub';
-const privateKeyPath = '/src/jwks/private_key.pem';
-
-let public_key: string, private_key: string;
-if (!fs.existsSync(ROOT_DIR + publicKeyPath) || !fs.existsSync(ROOT_DIR + privateKeyPath)) {
-
-    (async () => {
-
-        const { public_key: pubKey, private_key: privKey } = await new Promise((resolve, reject) => {
-            generateKeyPair('rsa', {
-                modulusLength: 2048,
-                publicKeyEncoding: {
-                    type: 'spki',
-                    format: 'pem'
-                },
-                privateKeyEncoding: {
-                    type: 'pkcs8',
-                    format: 'pem'
-                }
-            }, (err, public_key, private_key) => {
-                if (err) return reject(err)
-                return resolve({ public_key, private_key })
-            });
-        }) as { public_key: string, private_key: string }
-
-        fs.writeFileSync(ROOT_DIR + publicKeyPath, pubKey)
-        fs.writeFileSync(ROOT_DIR + privateKeyPath, privKey)
-
-
-
-    })();
-} else {
-    public_key = fs.readFileSync(ROOT_DIR + publicKeyPath, 'utf-8')
-    private_key = fs.readFileSync(ROOT_DIR + privateKeyPath, 'utf-8')
-}
 
 class LaunchController extends BaseExtensionCtrl {
 
     specTranslator: express.Handler = async (req, res, next) => {
-        console.log('controlling spec')
         let toolId = req.params.toolId;
         const body = req.body;
+        const { context_id, context_title, context_type, context_label } = body;
+        const context = { context_id, context_title, context_type, context_label }
         const query = req.query;
 
 
@@ -185,16 +146,13 @@ class LaunchController extends BaseExtensionCtrl {
             if (req.query.actor) {
                 const { accessToken, email } = LaunchService.validate_cmi5_request(query);
                 const { tool, user } = await LaunchService.getUserAndTool(accessToken, email, toolId)
-                return LaunchService.launchSpecification(tool.type as any, tool, user, accessToken)(req, res, next)
+                return LaunchService.launchSpecification(tool.type as any, tool, user, accessToken, context)(req, res, next)
             }
             // LTI11 LAUNCH REQUEST
             if (req.body.oauth_consumer_key) {
-
-                console.log('here we are')
-
                 const { accessToken, email } = LaunchService.validate_lti11_request(body);
                 const { tool, user } = await LaunchService.getUserAndTool(accessToken, email, toolId)
-                return LaunchService.launchSpecification(tool.type as any, tool, user, accessToken)(req, res, next)
+                return LaunchService.launchSpecification(tool.type as any, tool, user, accessToken, context)(req, res, next)
             }
             //  LTI13 LAUNCH REQUEST
             if (req.query.iss) {
@@ -208,27 +166,45 @@ class LaunchController extends BaseExtensionCtrl {
     };
 
     lti11form: express.Handler = (req, res, next) => {
-        let launchData = req.query;
-        let { redirectUrl, directLaunch, returnUrl, target }: any = launchData;
+        let launchDataQuery = req.query.launchData
+        let { redirectUrl, returnUrl }: any = req.query;
+        if (!launchDataQuery) return next({ message: 'launch data query parameter has to be defined!', status: 400 })
+        if (redirectUrl == null || redirectUrl == undefined) return next({ message: 'redirectUrl missing', status: 400 });
 
-        let toolTarget = target || launchData['launch_presentation_document_target']
+        let launchData: { [key: string]: any }
+        try {
+            launchData = JSON.parse(req.query.launchData as string);
 
-        if (directLaunch == null || directLaunch == undefined) directLaunch = false;
+            // function tryParseJSON(jsonString: string) {
+            //     try {
+            //         let parsed = JSON.parse(jsonString);
+            //         // Only return parsed object if it truly is an object
+            //         return (parsed && typeof parsed === "object") ? parsed : jsonString;
+            //     } catch (e) {
+            //         return jsonString;
+            //     }
+            // }
 
-        if (redirectUrl == null || redirectUrl == undefined)
-            return next({ message: 'redirectUrl missing', status: 400 });
-        delete launchData.redirectUrl;
-        delete launchData.directLaunch;
-        delete launchData.returnUrl;
-        delete launchData.target;
+            // for (let key in launchData) {
+            //     if (launchData.hasOwnProperty(key)) {
+            //         if (key.startsWith('custom_') || key.startsWith('ext_') || key === 'context') {
+            //             launchData[key] = tryParseJSON(launchData[key]);
+            //         }
+            //     }
+            // }
 
+        } catch (err) {
+            return next({ message: 'Launch data query must be an object', status: 400 })
+        }
+
+        let toolTarget = launchData['launch_presentation_document_target']
         const launchData_ary = Object.entries(launchData);
 
         try {
             let form = (toolTarget === '_self') ? lti11formSelf : lti11form
             let html = ejs.render(
                 form,
-                { launchData_ary, redirectUrl, launchData, returnUrl, target }
+                { launchData_ary, redirectUrl, launchData, returnUrl }
             );
             return res.send(html);
         } catch (e) {
@@ -272,96 +248,9 @@ class LaunchController extends BaseExtensionCtrl {
         }
     }
 
-    oidc_auth_endpoint: express.Handler = async (req, res, next) => {
-        try {
-            const token = req.body.id_token
-            if (!token) return next({ message: 'token missing', status: 400 })
+  
 
-            // decode token without verifying
-            const decoded = jwt.decode(token, { complete: true });
-            if (!decoded) return next({ message: 'token invalid', status: 400 })
-            const client_id = (decoded.payload as JwtPayload).aud
-            let kid = (decoded.header as JwtHeader).kid
-            let login_hint = (decoded.payload as JwtPayload).login_hint
-            let redirect_uri = (decoded.payload as JwtPayload).redirect_uri
-            let userId;
-            userId = encryptService.decrypt(login_hint)
-            if (!userId) return next({ message: `not valid loginhint: ${login_hint}`, status: 400 })
 
-            if (!client_id) return next({ message: 'client_id missing', status: 400 })
-
-            const tool = (await toolBDTOInstance.findAll()).find((tool) => {
-                return tool.client_id === client_id
-            })
-            if (!tool) return next({ message: 'tool not found', status: 400 })
-
-            let extendedTool = await CourseStructureJSON.getUserTool(userId, tool._id)
-            if (!extendedTool) return next({ message: `user has not access to that tool: ${tool._id}`, status: 400 })
-
-            const { launchableUrl, key_set_url, target_link_uri, roles } = extendedTool
-
-            // axios get jwks from key_set_url
-            const jwks = (await axios.get(key_set_url!)).data
-            let jwk = jwks.keys.find((jwk: any) => jwk.kid === kid)
-
-            if (!jwk) return res.json({ message: `jwk not found for that id: ${kid}`, status: 400 })
-
-            let public_key = jwk.x5c[0]
-            // verify token
-            const verified = jwt.verify(token, public_key)
-            const lo = await loBDTOInstance.findById(extendedTool.loId!)!
-            // lti13 payload
-            let payload = {
-                iss: process.env.DEPLOY_URL + '/launch',
-                sub: login_hint,
-                aud: tool.client_id,
-                iat: Math.floor(Date.now() / 1000),
-                nonce: uuid(),
-                'https://purl.imsglobal.org/spec/lti/claim/message_type': 'LtiResourceLinkRequest',
-                'https://purl.imsglobal.org/spec/lti/claim/version': '1.3.0',
-                'https://purl.imsglobal.org/spec/lti/claim/resource_link': '1',
-                'https://purl.imsglobal.org/spec/lti/claim/roles': roles,
-                'https://purl.imsglobal.org/spec/lti/claim/context': {
-                    id: lo!._id,
-                    label: lo.displayName,
-                    title: lo.displayName,
-                    type: [
-                        'http://purl.imsglobal.org/vocab/lis/v2/course#CourseOffering'
-                    ]
-                },
-
-            }
-
-            jwt.sign(payload, private_key, { expiresIn: '1h', keyid: KID, algorithm: "RS256" }, (err, token) => {
-                if (err) return res.status(500).send(err.message)
-                // OIDC Authentication Request where the payload is passed as jwt 
-                // return res.render('launch', { oidcAuthEndpoint: auth_login_url, token });
-                return res.render('launchLTI13tool', { redirect_uri, token })
-            })
-            // jwt.sign()
-        } catch (err) {
-            return next(err)
-        }
-    }
-
-    jwks: express.Handler = async (req, res, next) => {
-        try {
-            const jwks = {
-                keys: [
-                    {
-                        alg: "RS256",
-                        kty: "RSA",
-                        use: "sig",
-                        x5c: [public_key],
-                        kid: KID,
-                    }
-                ]
-            }
-            return res.json(jwks)
-        } catch (err) {
-            return next(err)
-        }
-    }
 }
 
 const controller = new LaunchController();
@@ -372,11 +261,17 @@ controller.router.get('/lti-11/form', controller.lti11form)
 controller.router.use('/cmi5', cmi5controller.router)
 
 // lti 13 routes
-controller.router.post('/oidc/auth', controller.oidc_auth_endpoint)
-controller.router.get('/jwks', controller.jwks)
+// controller.router.post('/oidc/auth', controller.oidc_auth_endpoint)
+// controller.router.get('/jwks', controller.jwks)
+
+controller.router.use('/lti13', lti13Controller.router)
+
 controller.router.use('/swagger', (req, res) => {
     return res.json(swaggerSpecification)
 })
+
+
+
 
 /**
  * @openapi
@@ -476,6 +371,24 @@ controller.router.use('/swagger', (req, res) => {
  *                   type: string
  *                   description: the email of the user
  *                   default: fame@fokus.fraunhofer.de
+ *                 context_id:
+ *                   type: string
+ *                 context_title:
+ *                   type: string
+ *                 context_label:
+ *                   type: string
+ *                 context_type:
+ *                   type: string
+ *                 tool_consumer_instance_guid:
+ *                   type: string
+ *                 launch_presentation_return_url:
+ *                   type: string
+ *                 resource_link_id:
+ *                   type: string
+ *                 lis_result_sourcedid:
+ *                   type: string
+ *                 lis_outcome_service_url:
+ *                   type: string
  *       responses:
  *         200:
  *           description: Successful operation
