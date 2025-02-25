@@ -1,3 +1,17 @@
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
 /* -----------------------------------------------------------------------------
  *  Copyright (c) 2023, Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V.
  *
@@ -27,21 +41,6 @@
  *  famecontact@fokus.fraunhofer.de
  * -----------------------------------------------------------------------------
  */
-"use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-
 const clm_core_1 = require("clm-core");
 const clm_ext_service_providers_1 = require("clm-ext-service_providers");
 const axios_1 = __importDefault(require("axios"));
@@ -236,9 +235,9 @@ class Cmi5Controller extends clm_core_1.BaseExtensionCtrl {
             return res.json({ 'auth-token': req.params.id });
         };
         this.tokenMW = (req, res, next) => __awaiter(this, void 0, void 0, function* () {
-            var _b;
+            var _a;
             try {
-                const authHeader = (_b = req.get('Authorization')) === null || _b === void 0 ? void 0 : _b.split('Basic ')[1];
+                const authHeader = (_a = req.get('Authorization')) === null || _a === void 0 ? void 0 : _a.split('Basic ')[1];
                 if (!authHeader)
                     return next({ message: "Authorization header needs to be present", status: 400 });
                 const lrsIds = Buffer.from(authHeader, 'base64').toString('utf-8').split(':')[1].split(',');
@@ -260,7 +259,7 @@ class Cmi5Controller extends clm_core_1.BaseExtensionCtrl {
                 return res.status(204).send();
             }
         });
-        this.lrsProxy = (req, res, next, lrss, path, method = 'GET') => __awaiter(this, void 0, void 0, function* () {
+        this.lrsProxy = (req_1, res_1, next_1, lrss_1, path_1, ...args_1) => __awaiter(this, [req_1, res_1, next_1, lrss_1, path_1, ...args_1], void 0, function* (req, res, next, lrss, path, method = 'GET') {
             const lrs = lrss[0];
             const token = Buffer.from(`${lrs.username}:${lrs.password}`).toString('base64');
             const query = req.originalUrl.split('?')[1];

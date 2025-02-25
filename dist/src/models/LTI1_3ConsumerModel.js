@@ -1,3 +1,5 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
 /* -----------------------------------------------------------------------------
  *  Copyright (c) 2023, Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V.
  *
@@ -27,8 +29,6 @@
  *  famecontact@fokus.fraunhofer.de
  * -----------------------------------------------------------------------------
  */
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
 const clm_core_1 = require("clm-core");
 class LTI1_3ConsumerModel extends clm_core_1.BaseDatamodel {
     constructor(payload) {
