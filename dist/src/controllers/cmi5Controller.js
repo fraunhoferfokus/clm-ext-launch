@@ -235,9 +235,9 @@ class Cmi5Controller extends clm_core_1.BaseExtensionCtrl {
             return res.json({ 'auth-token': req.params.id });
         };
         this.tokenMW = (req, res, next) => __awaiter(this, void 0, void 0, function* () {
-            var _a;
+            var _b;
             try {
-                const authHeader = (_a = req.get('Authorization')) === null || _a === void 0 ? void 0 : _a.split('Basic ')[1];
+                const authHeader = (_b = req.get('Authorization')) === null || _b === void 0 ? void 0 : _b.split('Basic ')[1];
                 if (!authHeader)
                     return next({ message: "Authorization header needs to be present", status: 400 });
                 const lrsIds = Buffer.from(authHeader, 'base64').toString('utf-8').split(':')[1].split(',');
@@ -259,7 +259,7 @@ class Cmi5Controller extends clm_core_1.BaseExtensionCtrl {
                 return res.status(204).send();
             }
         });
-        this.lrsProxy = (req_1, res_1, next_1, lrss_1, path_1, ...args_1) => __awaiter(this, [req_1, res_1, next_1, lrss_1, path_1, ...args_1], void 0, function* (req, res, next, lrss, path, method = 'GET') {
+        this.lrsProxy = (req, res, next, lrss, path, method = 'GET') => __awaiter(this, void 0, void 0, function* () {
             const lrs = lrss[0];
             const token = Buffer.from(`${lrs.username}:${lrs.password}`).toString('base64');
             const query = req.originalUrl.split('?')[1];

@@ -254,17 +254,15 @@ class LaunchController extends BaseExtensionCtrl {
 }
 
 const controller = new LaunchController();
-
+// lti 13 routes
+// controller.router.post('/oidc/auth', controller.oidc_auth_endpoint)
+// controller.router.get('/jwks', controller.jwks)
+controller.router.use('/lti13', lti13Controller.router)
 controller.router.get('/lti-11/:toolId/launchdata', AuthGuard.requireUserAuthentication(), controller.lti11_launchData)
 controller.router.get('/cmi5/form', controller.cmi5form)
 controller.router.get('/lti-11/form', controller.lti11form)
 controller.router.use('/cmi5', cmi5controller.router)
 
-// lti 13 routes
-// controller.router.post('/oidc/auth', controller.oidc_auth_endpoint)
-// controller.router.get('/jwks', controller.jwks)
-
-controller.router.use('/lti13', lti13Controller.router)
 
 controller.router.use('/swagger', (req, res) => {
     return res.json(swaggerSpecification)

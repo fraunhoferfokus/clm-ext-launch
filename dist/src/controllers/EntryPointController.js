@@ -245,14 +245,14 @@ class LaunchController extends clm_core_1.BaseExtensionCtrl {
     }
 }
 const controller = new LaunchController();
-controller.router.get('/lti-11/:toolId/launchdata', clm_core_1.AuthGuard.requireUserAuthentication(), controller.lti11_launchData);
-controller.router.get('/cmi5/form', controller.cmi5form);
-controller.router.get('/lti-11/form', controller.lti11form);
-controller.router.use('/cmi5', cmi5Controller_1.default.router);
 // lti 13 routes
 // controller.router.post('/oidc/auth', controller.oidc_auth_endpoint)
 // controller.router.get('/jwks', controller.jwks)
 controller.router.use('/lti13', lti13Controller_1.default.router);
+controller.router.get('/lti-11/:toolId/launchdata', clm_core_1.AuthGuard.requireUserAuthentication(), controller.lti11_launchData);
+controller.router.get('/cmi5/form', controller.cmi5form);
+controller.router.get('/lti-11/form', controller.lti11form);
+controller.router.use('/cmi5', cmi5Controller_1.default.router);
 controller.router.use('/swagger', (req, res) => {
     return res.json(swaggerSpecification);
 });

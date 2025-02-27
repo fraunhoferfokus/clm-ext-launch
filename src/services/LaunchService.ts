@@ -60,7 +60,7 @@ class LaunchService {
     private initialize_lti13_launch(tool: ToolModel & { roles?: string[] }, user: UserModel, context: Context): express.Handler {
         return async (req, res, next) => {
             try {
-                let deployUrl = process.env.DEPLOY_URL + '/launch/lti13/platformDetails'
+                let deployUrl = process.env.GATEWAY_URL + '/launch/lti13/platformDetails'
                 let platformDetails = (await axios.get(deployUrl)).data
                 let { iss, clientId } = platformDetails
                 let { launchableUrl, oidc_login_url, deployment_id } = tool

@@ -1,4 +1,4 @@
-FROM node:20.18.1-alpine3.19 as builder
+FROM node:20.18.1-alpine3.19 AS builder
 
 # Install git and other necessary tools
 RUN apk add --no-cache git

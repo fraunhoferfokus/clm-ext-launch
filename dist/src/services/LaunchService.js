@@ -59,7 +59,7 @@ class LaunchService {
         return (req, res, next) => __awaiter(this, void 0, void 0, function* () {
             var _a, _b;
             try {
-                let deployUrl = process.env.DEPLOY_URL + '/launch/lti13/platformDetails';
+                let deployUrl = process.env.GATEWAY_URL + '/launch/lti13/platformDetails';
                 let platformDetails = (yield axios_1.default.get(deployUrl)).data;
                 let { iss, clientId } = platformDetails;
                 let { launchableUrl, oidc_login_url, deployment_id } = tool;

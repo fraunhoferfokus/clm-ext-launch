@@ -11,7 +11,7 @@ declare class Cmi5Controller extends BaseExtensionCtrl {
     authTokenGenerator: express.Handler;
     tokenMW: express.Handler;
     statements: express.Handler;
-    lrsProxy: (req: express.Request, res: express.Response, next: express.NextFunction, lrss: SPModel[], path: string, method?: ("PUT" | "POST" | "GET")) => Promise<void | express.Response<any, Record<string, any>>>;
+    lrsProxy: (req: express.Request, res: express.Response, next: express.NextFunction, lrss: SPModel[], path: string, method?: ('PUT' | 'POST' | 'GET')) => Promise<void | express.Response<any, Record<string, any>>>;
 }
 declare const controller: Cmi5Controller;
 export default controller;
